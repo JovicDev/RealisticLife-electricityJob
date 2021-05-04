@@ -1,0 +1,58 @@
+RLCore = nil
+TriggerEvent('RLCore:GetObject', function(obj) RLCore = obj end)
+
+local PaymentTax = 15
+
+local Bail = {}
+
+RegisterServerEvent('rl-electricity:server:DoBail')
+AddEventHandler('rl-electricity:server:DoBail', function(bool, vehInfo)
+    local src = source
+    local Player = RLCore.Functions.GetPlayer(src)
+
+    if bool then
+        if Player.PlayerData.money.cash >= Config.BailPrice then
+            Bail[Player.PlayerData.citizenid] = Config.BailPrice
+            Player.Functions.RemoveMoney('cash', Config.BailPrice, "tow-received-bail")
+            TriggerClientEvent('RLCore:Notify', src, 'Platio si depozit od 750, - (Cash)', 'success')
+            TriggerClientEvent('rl-electricity:client:SpawnVehicle', src, vehInfo)
+        elseif Player.PlayerData.money.bank >= Config.BailPrice then
+            Bail[Player.PlayerData.citizenid] = Config.BailPrice
+            Player.Functions.RemoveMoney('bank', Config.BailPrice, "tow-received-bail")
+            TriggerClientEvent('RLCore:Notify', src, 'Platio si depozit od 750, - (Bank)', 'success')
+            TriggerClientEvent('rl-electricity:client:SpawnVehicle', src, vehInfo)
+        else
+            TriggerClientEvent('RLCore:Notify', src, 'Nemaš dovoljno novca, depozit iznosi 750, -', 'error')
+        end
+    else
+        if Bail[Player.PlayerData.citizenid] ~= nil then
+            Player.Functions.AddMoney('cash', Bail[Player.PlayerData.citizenid], "electricity-bail-paid")
+            Bail[Player.PlayerData.citizenid] = nil
+            TriggerClientEvent('RLCore:Notify', src, 'Dobio si depozit od 750, - nazad', 'success')
+        end
+    end
+end)
+
+RegisterNetEvent('rl-electricity:server:01101110')
+AddEventHandler('rl-electricity:server:01101110', function(drops)
+    local src = source 
+    local Player = RLCore.Functions.GetPlayer(src)
+    local drops = tonumber(drops)
+    local bonus = 0
+    local DropPrice = math.random(50, 80)
+    if drops > 5 then 
+        bonus = math.ceil((DropPrice / 100) * 5) + 100
+    elseif drops > 10 then
+        bonus = math.ceil((DropPrice / 100) * 7) + 300
+    elseif drops > 15 then
+        bonus = math.ceil((DropPrice / 100) * 10) + 400
+    elseif drops > 20 then
+        bonus = math.ceil((DropPrice / 100) * 12) + 500
+    end
+    local price = (DropPrice * drops) + bonus
+    local taxAmount = math.ceil((price / 100) * PaymentTax)
+    local payment = price - taxAmount
+    --Player.Functions.AddJobReputation(1)
+    Player.Functions.AddMoney("cash", payment, "electricity-salary")
+    TriggerClientEvent('chatMessage', source, "BAAN", "warning", " Dobio si platu od: €"..payment..", bruto: €"..price.." (od kojih je €"..bonus.." bonus) sa €"..taxAmount.." poreza ("..PaymentTax.."%)")
+end)
